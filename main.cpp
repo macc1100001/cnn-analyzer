@@ -162,9 +162,10 @@ int main(int, char**){
 					ImGuiFileDialog::Instance()->Close();
 				}
 				//ImGui::Text("%s", items1);
+				if(!darknetPath.empty())
+					ImGui::Text("%s", darknetPath.c_str());
 			}
-			if(!darknetPath.empty())
-				ImGui::Text("%s", darknetPath.c_str());
+
 			ImGui::PopID();
 			
 			/*ImGui::BeginDisabled(true);			
@@ -184,6 +185,19 @@ int main(int, char**){
 			static int item_current = 0;
 			const char* items[] = {"train", "valid", "test"};
 			static list *options = NULL;
+			
+			static bool openFileContents = false;
+			static bool openImage = false;
+			static int my_image_width = 0;
+			static int my_image_height = 0;
+			static GLuint my_image_texture;
+			static char imageName[256];
+			static char **imagePaths = NULL;
+			static bool showComboBox = false;
+			
+			static char fileContents[4096];
+			static char temp[2048];
+			
 			if(clicked1 & 1){
 				static char defaultDataFile[512] = {"\0"};
 				static char dataPath[] = "/data/";
@@ -200,173 +214,138 @@ int main(int, char**){
 														minSize, maxSize)){
 					if(ImGuiFileDialog::Instance()->IsOk()){
 						objdataPath = ImGuiFileDialog::Instance()->GetFilePathName();
-						/*if(options){
-							free_list_contents(options);
-							free_list(options);
-						}*/
 						//filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
 					}
 					clicked1++;
 					ImGuiFileDialog::Instance()->Close();
 				}
-								/*ImGui::Combo("Datasets", &item_current, items, IM_ARRAYSIZE(items));
-				When item is selected read file contents to get routes and perform a convolution(forward) to image selected
-				in list box
-				ImGui::Text("Using %s", items[item_current]);*/
-				// Add a listbox that shows every image and when selected, perform convolution(forward)
-			}
-		
-			static bool openFileContents = false;
-			static bool openImage = false;
-			static int my_image_width = 0;
-			static int my_image_height = 0;
-			//char *imgPath;
-			static GLuint my_image_texture;
-			static char imageName[256];
-			static char **imagePaths = NULL;
-			
-			static char fileContents[4096] = {"\0"};
-			if(!objdataPath.empty()){
-				if(strlen(fileContents) == 0){
+				
+				if(!objdataPath.empty()){
+					memset(fileContents, 0, 4096);
 					FILE *fp = fopen(objdataPath.c_str(), "r");
-					if(fp){
-						fread(fileContents, IM_ARRAYSIZE(fileContents), sizeof(*fileContents), fp);
-						fclose(fp);
-						openFileContents = true;
-						//ImGui::Text("%s", objdataPath.c_str());
-					}
-				}				
-				ImGui::Combo("Datasets", &item_current, items, IM_ARRAYSIZE(items));
-				/* When item is selected read file contents to get routes and perform a 
-				convolution(forward) to image selected in list box*/
-				static int current_comboSel = -1;
-				char temp[2048] = {"\0"};
-				char* val;
-				static char imagesPaths[1000*512];
-				static list *finalImagesPaths;
-				static char full_valPath[512];
-				
-				if(current_comboSel != item_current){
-					strncpy(temp, objdataPath.c_str(), objdataPath.size());
-					options = read_data_cfg(temp);
-					current_comboSel = item_current;
-					char item[1024] = {"\0"};
-					strncpy(item, items[item_current], strlen(items[item_current]));
-					val = option_find(options, item);
-					ImGui::Text("Using %s", items[item_current]);
-					free_list(options);
-				//}
-				
-				// TODO: 
-				/*
-					Read file at darknetPath + / + val
-					Store it as an array. maybe char**?
-					Process it in listbox
-				*/
-				/*static char imagesPaths[1000*512];
-				//static char **finalImagesPaths = NULL;
-				static list *finalImagesPaths;
-				static char full_valPath[512];*/
-				//static int curr = -1;
-				//static int size_j = 1;
-				//if(curr != item_current){
-					memset(full_valPath, 0, 512);
-					strncpy(full_valPath, darknetPath.c_str(), darknetPath.size());
-					strncat(full_valPath, "/", 2);
-					strncat(full_valPath, val, strlen(val));
-					FILE *fp = fopen(full_valPath, "r");
-					if(fp){
-						fread(imagesPaths, IM_ARRAYSIZE(imagesPaths), sizeof(*imagesPaths), fp);
-						//curr = item_current;
-						fclose(fp);
-					}
-					
-					/*if(finalImagesPaths){
-						for(int i = 0; i < size_j-1; i++){
-							//printf("%d\n", i);
-							if(finalImagesPaths[i]){
-								free(finalImagesPaths[i]);
-							}
+						if(fp){
+							fread(fileContents, IM_ARRAYSIZE(fileContents), sizeof(*fileContents), fp);
+							fclose(fp);
+							openFileContents = true;
+							//ImGui::Text("%s", objdataPath.c_str());
 						}
-						free(finalImagesPaths);
-						finalImagesPaths = NULL;
-						size_j = 1;
-					}*/
-					//size_j = 1;
-					
-					if(imagePaths)
-						free(imagePaths);
-										
-					if(finalImagesPaths)
-						free_list(finalImagesPaths);
-					
-									
-
-					finalImagesPaths = make_list();
-					//finalImagesPaths = (char**)calloc(size_j, sizeof(char*));
-						char *str1 = imagesPaths, *saveptr, *token;
-						for(int j = 1; ;j++){
-							token = strtok_r(str1, "\n", &saveptr);
-							if(token == NULL)
-								break;
-							list_insert(finalImagesPaths, token);	
-							//finalImagesPaths[size_j-1] = (char*)calloc(strlen(token), sizeof(char));
-							//strncpy(finalImagesPaths[size_j-1], token, strlen(token));
-							//printf("%d: %s\n", size_j, finalImagesPaths[size_j-1]);
-							//finalImagesPaths = (char**)reallocarray(finalImagesPaths, (++size_j), sizeof(char*));
-							str1 = NULL;
-						}
-					
-					imagePaths = (char**)list_to_array(finalImagesPaths);
-					
-				}
-				
-				static int current_item_idx = 0;
-				if(ImGui::BeginListBox("Images", ImVec2(ImGui::GetWindowWidth() * 0.8, 
-												5 * ImGui::GetTextLineHeightWithSpacing()))){
-					for(int n = 0; n < finalImagesPaths->size; n++){
-						const bool is_selected = (current_item_idx == n);
-						if(ImGui::Selectable(imagePaths[n], is_selected)){
-							current_item_idx = n;
-							openImage = true;
-						}
-						if(is_selected){
-							ImGui::SetItemDefaultFocus();
-							
-							//imgPath = (char*)calloc(darknetPath.size() + strlen(imagePaths[current_item_idx])+1,
-							//						sizeof(char));
-							//glDeleteTextures(1, &my_image_texture);
-							//free(imageName);
-						}
-					}
-					ImGui::EndListBox();
-					
-					char imgPath[512];
-					memset(imgPath, 0, 512);
-					strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
-					strncat(imgPath, "/", 2);
-					strncat(imgPath, imagePaths[current_item_idx],
-									 strlen(imagePaths[current_item_idx]));
-					my_image_width = 0;
-					my_image_height = 0;
-					my_image_texture = 0;
-					bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
-													&my_image_width, &my_image_height);
-					IM_ASSERT(ret);
-					
-					char *nameIdx = rindex(imagePaths[current_item_idx], '/');
-					int pos = (nameIdx - imagePaths[current_item_idx]);
-					memset(imageName, 0, 256);
-					strncpy(imageName, nameIdx+1, strlen(imagePaths[current_item_idx]) - (pos+1));
-				}
-				
-				
+					memset(temp, 0, 2048);
+					strncpy(temp, objdataPath.c_str(), objdataPath.size());	
+					showComboBox = true;		
+					/* When item is selected read file contents to get routes and perform a 
+					convolution(forward) to image selected in list box*/			
+					// Add a listbox that shows every image and when selected, perform convolution(forward)
+				}// if(!objdataPath.empty)
+				//When item is selected read file contents to get routes and perform a
+				//convolution(forward) to image selected in list box
+				//ImGui::Text("Using %s", items[item_current]);
 				// Add a listbox that shows every image and when selected, perform convolution(forward)
 			}
+			
+			if(showComboBox)
+				ImGui::Combo("Datasets", &item_current, items, IM_ARRAYSIZE(items));
+			
+			static int current_comboSel = -1;
+			char* val;
+			static char imagesPaths[1000*512];
+			static list *finalImagesPaths = NULL;
+			static char full_valPath[512];
+			
+			if(current_comboSel != item_current && strlen(temp) != 0){
+				options = read_data_cfg(temp);
+				current_comboSel = item_current;
+				char item[1024] = {"\0"};
+				strncpy(item, items[item_current], strlen(items[item_current]));
+				val = option_find(options, item);
+				ImGui::Text("Using %s", items[item_current]);
+				free_list(options);
+			
+			// TODO: 
+			/*
+				Read file at darknetPath + / + val
+				Store it as an array. maybe char**?
+				Process it in listbox
+			*/
+				memset(full_valPath, 0, 512);
+				strncpy(full_valPath, darknetPath.c_str(), darknetPath.size());
+				strncat(full_valPath, "/", 2);
+				strncat(full_valPath, val, strlen(val));
+				memset(imagesPaths, 0, 1000*512);
+				FILE *fp = fopen(full_valPath, "r");
+				if(fp){
+					fread(imagesPaths, IM_ARRAYSIZE(imagesPaths), sizeof(*imagesPaths), fp);
+					fclose(fp);
+				}
+									
+				if(imagePaths)
+					free(imagePaths);
+									
+				if(finalImagesPaths)
+					free_list(finalImagesPaths);							
+
+				finalImagesPaths = make_list();
+					char *str1 = imagesPaths, *saveptr, *token;
+					for(int j = 1; ;j++){
+						token = strtok_r(str1, "\n", &saveptr);
+						if(token == NULL)
+							break;
+						list_insert(finalImagesPaths, token);	
+						str1 = NULL;
+					}
+				
+				imagePaths = (char**)list_to_array(finalImagesPaths);
+				
+			}// if(current_comboSel != item_current)
+			
+			if(finalImagesPaths != NULL && imagePaths != NULL){
+			static int current_item_idx = 0;
+			if(ImGui::BeginListBox("Images", ImVec2(ImGui::CalcItemWidth() * 1.1, 
+											5 * ImGui::GetTextLineHeightWithSpacing()))){
+				for(int n = 0; n < finalImagesPaths->size; n++){
+					const bool is_selected = (current_item_idx == n);
+					
+					char nameList[256];
+					char *nameIdx = rindex(imagePaths[n], '/');
+					int pos = (nameIdx - imagePaths[n]);
+					memset(nameList, 0, 256);
+					strncpy(nameList, nameIdx+1, strlen(imagePaths[n]) - (pos+1));
+										
+					if(ImGui::Selectable(nameList, is_selected)){
+						current_item_idx = n;
+						openImage = true;
+					}
+					if(is_selected){
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndListBox();
+				
+				char imgPath[512];
+				memset(imgPath, 0, 512);
+				strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
+				strncat(imgPath, "/", 2);
+				strncat(imgPath, imagePaths[current_item_idx],
+								 strlen(imagePaths[current_item_idx]));
+				my_image_width = 0;
+				my_image_height = 0;
+				my_image_texture = 0;
+				bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
+												&my_image_width, &my_image_height);
+				IM_ASSERT(ret);
+				
+				char *nameIdx = rindex(imagePaths[current_item_idx], '/');
+				int pos = (nameIdx - imagePaths[current_item_idx]);
+				memset(imageName, 0, 256);
+				strncpy(imageName, nameIdx+1, strlen(imagePaths[current_item_idx]) - (pos+1));
+			} //EndListBox
+			}
+			
 			
 			ImGui::PopID();
 			
 			static int clicked2 = 0;
+			static bool openFileContents1 = false;
+			static char fileContents1[4096];
 			ImGui::Spacing();
 			ImGui::Spacing();
 			ImGui::Text("cfg file");	
@@ -391,13 +370,9 @@ int main(int, char**){
 					}
 					clicked2++;
 					ImGuiFileDialog::Instance()->Close();
-				}			
-			}
-			
-			static bool openFileContents1 = false;
-			static char fileContents1[4096] = {"\0"};
-			if(!cfgFilePath.empty()){
-				if(strlen(fileContents1) == 0){
+				}
+				if(!cfgFilePath.empty()){
+					memset(fileContents1, 0, 4096);
 					FILE *fp = fopen(cfgFilePath.c_str(), "r");
 					if(fp){
 						fread(fileContents1, IM_ARRAYSIZE(fileContents1), sizeof(*fileContents1), fp);
@@ -408,6 +383,7 @@ int main(int, char**){
 			}
 			
 			ImGui::PopID();
+			
 			static int clicked3 = 0;
 			ImGui::Spacing();
 			ImGui::Spacing();
@@ -437,10 +413,12 @@ int main(int, char**){
 					clicked3++;
 					ImGuiFileDialog::Instance()->Close();
 				}
+				
+				if(!weightsFilePath.empty())
+					ImGui::Text("%s", weightsFilePath.c_str());
+				
 			}
 			
-			if(!weightsFilePath.empty())
-				ImGui::Text("%s", weightsFilePath.c_str());
 			ImGui::PopID();
 									
 			ImGui::End();
