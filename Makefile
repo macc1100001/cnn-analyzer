@@ -26,7 +26,7 @@ LINUX_GL_LIBS = -lGL
 
 CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(EXTENSIONS_DIR) -I$(EXTENSIONS_DIR)/ImGuiFileDialog -I$(EXTENSIONS_DIR)/FromDarknet
 CXXFLAGS += -g -Wall -Wformat
-DARKNETFLAGS = -Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC
+DARKNETFLAGS = -O2 -Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC
 LIBS =
 
 ##---------------------------------------------------------------------
