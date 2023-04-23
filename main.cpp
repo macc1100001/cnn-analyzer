@@ -166,9 +166,9 @@ int main(int, char**){
 					ImGuiFileDialog::Instance()->Close();
 				}
 				//ImGui::Text("%s", items1);
-				if(!darknetPath.empty())
-					ImGui::Text("%s", darknetPath.c_str());
 			}
+			if(!darknetPath.empty())
+					ImGui::Text("%s", darknetPath.c_str());
 
 			ImGui::PopID();
 			
@@ -209,7 +209,7 @@ int main(int, char**){
 					strncpy(defaultDataFile, darknetPath.c_str(), darknetPath.size());
 					strncat(defaultDataFile, dataPath, strlen(dataPath));
 				}
-				else
+				else if(darknetPath.empty())
 					strncpy(defaultDataFile, ".", 2);
 				// Again make file dialog popup then store the necesary info from obj.data
 				ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose ojb.data File", 
@@ -302,46 +302,86 @@ int main(int, char**){
 			}// if(current_comboSel != item_current)
 			
 			if(finalImagesPaths != NULL && imagePaths != NULL){
-			static int current_item_idx = 0;
-			if(ImGui::BeginListBox("Images", ImVec2(ImGui::CalcItemWidth() * 1.1, 
-											5 * ImGui::GetTextLineHeightWithSpacing()))){
-				for(int n = 0; n < finalImagesPaths->size; n++){
-					const bool is_selected = (current_item_idx == n);
+				static int current_item_idx = 0;
+				
+				//char nameList[256];
+				/*char **nameList = (char**)calloc(finalImagesPaths->size, sizeof(char*));
+				for(int i = 0; i < finalImagesPaths->size; i++){
+					char *nameIdx = rindex(imagePaths[i], '/');
+					int pos = (nameIdx - imagePaths[i]);
+					//memset(nameList, 0, 256);
+					size_t nameLen = strlen(imagePaths[i]) - (pos+1);
+					nameList[i] = (char*)calloc(nameLen+1, 1);//1 = sizeof(char)
+					strncpy(nameList[i], nameIdx+1, nameLen);
+				}*/			
+				
+				if(ImGui::BeginListBox("Images", ImVec2(ImGui::CalcItemWidth() * 1.1, 
+												5 * ImGui::GetTextLineHeightWithSpacing()))){
+					for(int n = 0; n < finalImagesPaths->size; n++){
+						const bool is_selected = (current_item_idx == n);
+						
+						char nameList[256];
+						char *nameIdx = rindex(imagePaths[n], '/');
+						int pos = (nameIdx - imagePaths[n]);
+						memset(nameList, 0, 256);
+						size_t nameLen = strlen(imagePaths[n]) - (pos+1);
+						strncpy(nameList, nameIdx+1, nameLen);
+						
+											
+						if(ImGui::Selectable(nameList, is_selected)){
+							current_item_idx = n;
+							//printf("ListBox Selectable");
+							
+							char imgPath[512];
+							memset(imgPath, 0, 512);
+							strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
+							strncat(imgPath, "/", 2);
+							strncat(imgPath, imagePaths[current_item_idx],
+											 strlen(imagePaths[current_item_idx]));
+							my_image_width = 0;
+							my_image_height = 0;
+							
+					        glDeleteTextures(1, &my_image_texture);
+							
+							my_image_texture = 0;
+							
+							bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
+															&my_image_width, &my_image_height);
+							IM_ASSERT(ret);
+							
+							//char *nameIdx = rindex(imagePaths[current_item_idx], '/');
+							//int pos = (nameIdx - imagePaths[current_item_idx]);
+							memset(imageName, 0, 256);
+							strncpy(imageName, nameList, strlen(nameList));
+							
+							openImage = true;
+						}
+						if(is_selected){
+							ImGui::SetItemDefaultFocus();
+						}
+					}
+					ImGui::EndListBox();
 					
-					char nameList[256];
-					char *nameIdx = rindex(imagePaths[n], '/');
-					int pos = (nameIdx - imagePaths[n]);
-					memset(nameList, 0, 256);
-					strncpy(nameList, nameIdx+1, strlen(imagePaths[n]) - (pos+1));
-										
-					if(ImGui::Selectable(nameList, is_selected)){
-						current_item_idx = n;
-						openImage = true;
-					}
-					if(is_selected){
-						ImGui::SetItemDefaultFocus();
-					}
-				}
-				ImGui::EndListBox();
-				
-				char imgPath[512];
-				memset(imgPath, 0, 512);
-				strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
-				strncat(imgPath, "/", 2);
-				strncat(imgPath, imagePaths[current_item_idx],
-								 strlen(imagePaths[current_item_idx]));
-				my_image_width = 0;
-				my_image_height = 0;
-				my_image_texture = 0;
-				bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
-												&my_image_width, &my_image_height);
-				IM_ASSERT(ret);
-				
-				char *nameIdx = rindex(imagePaths[current_item_idx], '/');
-				int pos = (nameIdx - imagePaths[current_item_idx]);
-				memset(imageName, 0, 256);
-				strncpy(imageName, nameIdx+1, strlen(imagePaths[current_item_idx]) - (pos+1));
-			} //EndListBox
+					
+					/*
+					char imgPath[512];
+					memset(imgPath, 0, 512);
+					strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
+					strncat(imgPath, "/", 2);
+					strncat(imgPath, imagePaths[current_item_idx],
+									 strlen(imagePaths[current_item_idx]));
+					my_image_width = 0;
+					my_image_height = 0;
+					my_image_texture = 0;
+					bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
+													&my_image_width, &my_image_height);
+					IM_ASSERT(ret);
+					
+					char *nameIdx = rindex(imagePaths[current_item_idx], '/');
+					int pos = (nameIdx - imagePaths[current_item_idx]);
+					memset(imageName, 0, 256);
+					strncpy(imageName, nameIdx+1, strlen(imagePaths[current_item_idx]) - (pos+1));*/
+				} //EndListBox
 			}
 			
 			
@@ -363,7 +403,7 @@ int main(int, char**){
 				if(strlen(defaultCfgFile) == 0 && !darknetPath.empty()){
 					strncpy(defaultCfgFile, darknetPath.c_str(), darknetPath.size());
 				}
-				else
+				else if(darknetPath.empty())
 					strncpy(defaultCfgFile,".", 2);
 				ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose .cfg file",
 														".cfg", defaultCfgFile, 0, 0, 1, nullptr, dialogFlags);
@@ -405,8 +445,9 @@ int main(int, char**){
 					strncpy(defaultWeigthsDir, darknetPath.c_str(), darknetPath.size());
 					strncat(defaultWeigthsDir, replaceThisLater, strlen(replaceThisLater));
 				}
-				else
+				else if(darknetPath.empty())
 					strncpy(defaultWeigthsDir, ".", 2);
+					
 				ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose weights file",
 														".weights", defaultWeigthsDir, 0, 0, 1, nullptr, dialogFlags);
 				if(ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoCollapse,
@@ -465,11 +506,7 @@ int main(int, char**){
         glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
-        
-        //cleanup texture
-        glDeleteTextures(1, &my_image_texture);
-        
-                	
+                        	
 	}
 	
 	// Cleanup
