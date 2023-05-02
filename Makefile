@@ -17,16 +17,19 @@ CXX = g++
 EXE = cnn_analyzer
 IMGUI_DIR = ../imgui
 EXTENSIONS_DIR = ./lib
+OBJDIR = ./obj/
+
 SOURCES = main.cpp $(EXTENSIONS_DIR)/ImGuiFileDialog/ImGuiFileDialog.cpp
-SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp $(EXTENSIONS_DIR)/FromDarknet/option_list.c $(EXTENSIONS_DIR)/FromDarknet/utils.c $(EXTENSIONS_DIR)/FromDarknet/list.c
+SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
+SOURCES += $(EXTENSIONS_DIR)/FromDarknet/option_list.c $(EXTENSIONS_DIR)/FromDarknet/utils.c $(EXTENSIONS_DIR)/FromDarknet/list.c
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
+
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
 
-CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(EXTENSIONS_DIR) -I$(EXTENSIONS_DIR)/ImGuiFileDialog -I$(EXTENSIONS_DIR)/FromDarknet
+CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(EXTENSIONS_DIR) -I$(EXTENSIONS_DIR)/ImGuiFileDialog -I$(EXTENSIONS_DIR)/ImGuiFileDialog/stb -I$(EXTENSIONS_DIR)/FromDarknet
 CXXFLAGS += -g -Wall -Wformat
-DARKNETFLAGS = -O2 -Wall -Wfatal-errors -Wno-unused-result -Wno-unknown-pragmas -fPIC
 LIBS =
 
 ##---------------------------------------------------------------------
@@ -70,30 +73,35 @@ ifeq ($(OS), Windows_NT)
     CFLAGS = $(CXXFLAGS)
 endif
 
+OBJ = $(addprefix $(OBJDIR), $(OBJS))
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------
 
-%.o:%.cpp
+$(OBJDIR)%.o:%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 	
-%.o:$(EXTENSIONS_DIR)/ImGuiFileDialog/%.cpp
+$(OBJDIR)%.o:$(EXTENSIONS_DIR)/ImGuiFileDialog/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-%.o:$(EXTENSIONS_DIR)/FromDarknet/%.c $(EXTENSIONS_DIR)/FromDarknet/%.h
-	$(CXX) $(DARKNETFLAGS) -c -o $@ $<	
+$(OBJDIR)%.o:$(EXTENSIONS_DIR)/FromDarknet/%.c
+	$(CXX) $(CXXFLAGS) -c -o $@ $<	
 
-%.o:$(IMGUI_DIR)/%.cpp
+$(OBJDIR)%.o:$(IMGUI_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-%.o:$(IMGUI_DIR)/backends/%.cpp
+$(OBJDIR)%.o:$(IMGUI_DIR)/backends/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-all: $(EXE)
+all: $(OBJDIR) $(EXE)
 	@echo Build complete for $(ECHO_MESSAGE)
+	
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
 
-$(EXE): $(OBJS)
+$(EXE): $(OBJ)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LIBS)
 
 clean:
-	rm -f $(EXE) $(OBJS)
+	rm -f $(EXE) $(OBJ)
