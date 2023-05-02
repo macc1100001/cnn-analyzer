@@ -52,6 +52,35 @@ bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_wid
     return true;
 }
 
+bool generate_featureMaps(float *imageData, char *datacfg, char *cfgfile, char *weightfile, char *outfile, char *filename){
+	if (imageData == NULL)
+		return false;
+	/*
+		TODO:
+		Functions to get maybe the image from feature map in layer "l" are:
+		
+		image get_network_image_layer(network net, int i);
+		image get_image_layer(image m, int l);
+		void save_image(image im, const char *name)	
+		test_detector()
+		run_nightmare()
+		
+		Files probably needed are (consider dependency files too):
+			image.c
+			nightmare.c
+			detector.c
+			parser.c
+		
+		//start maybe like this?
+		network net = parse_network_cfg_custom(cfgfile, 1, 1);
+		load_weights(&net, weightfile);
+		
+		free_network(net);
+		
+	*/
+}
+
+
 int main(int, char**){
 	// Setup SDL
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0){
@@ -92,7 +121,7 @@ int main(int, char**){
 	SDL_WindowFlags windowFlags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
 	SDL_WINDOW_ALLOW_HIGHDPI);
 	SDL_Window* window = SDL_CreateWindow("CNN Analyzer", SDL_WINDOWPOS_CENTERED,
-	SDL_WINDOWPOS_CENTERED, 1280, 800, windowFlags);
+	SDL_WINDOWPOS_CENTERED, 1600, 900, windowFlags);
 	SDL_GLContext gl_context = SDL_GL_CreateContext(window);
 	SDL_GL_MakeCurrent(window, gl_context);
 	SDL_GL_SetSwapInterval(1); // VSync
@@ -153,7 +182,6 @@ int main(int, char**){
 			
 			if(clicked & 1){
 				// Make file dialog popup to the darkent route
-				//ImGui::Text("Place here file dialog...");
 				ImGuiFileDialog::Instance()->OpenDialog("ChooseDirDlgKey", "Choose Directory", nullptr, ".",
 														0,0,1,nullptr, dialogFlags);
 				if(ImGuiFileDialog::Instance()->Display("ChooseDirDlgKey", ImGuiWindowFlags_NoCollapse,
@@ -165,17 +193,12 @@ int main(int, char**){
 					clicked++;
 					ImGuiFileDialog::Instance()->Close();
 				}
-				//ImGui::Text("%s", items1);
 			}
 			if(!darknetPath.empty())
 					ImGui::Text("%s", darknetPath.c_str());
 
 			ImGui::PopID();
 			
-			/*ImGui::BeginDisabled(true);			
-			ImGui::InputTextWithHint("obj.data directory", "search...", , IM_ARRAYSIZE(buf),
-									ImGuiInputTextFlags_ReadOnly);
-			ImGui::EndDisabled();*/
 			ImGui::Spacing();
 			ImGui::Spacing();
 			ImGui::Text("obj.data file");
@@ -194,10 +217,15 @@ int main(int, char**){
 			static bool openImage = false;
 			static int my_image_width = 0;
 			static int my_image_height = 0;
+			static int fm_texture_w = 0;
+			static int fm_texture_h = 0;
 			static GLuint my_image_texture;
+			//static GLuint fm_texture;
 			static char imageName[256];
 			static char **imagePaths = NULL;
 			static bool showComboBox = false;
+			
+			static bool showFeatureMaps = false;
 			
 			static char fileContents[4096];
 			static char temp[2048];
@@ -231,7 +259,6 @@ int main(int, char**){
 							fread(fileContents, IM_ARRAYSIZE(fileContents), sizeof(*fileContents), fp);
 							fclose(fp);
 							openFileContents = true;
-							//ImGui::Text("%s", objdataPath.c_str());
 						}
 					memset(temp, 0, 2048);
 					strncpy(temp, objdataPath.c_str(), objdataPath.size());	
@@ -242,7 +269,6 @@ int main(int, char**){
 				}// if(!objdataPath.empty)
 				//When item is selected read file contents to get routes and perform a
 				//convolution(forward) to image selected in list box
-				//ImGui::Text("Using %s", items[item_current]);
 				// Add a listbox that shows every image and when selected, perform convolution(forward)
 			}
 			
@@ -285,7 +311,8 @@ int main(int, char**){
 					free(imagePaths);
 									
 				if(finalImagesPaths)
-					free_list(finalImagesPaths);							
+					free_list(finalImagesPaths);
+				
 
 				finalImagesPaths = make_list();
 					char *str1 = imagesPaths, *saveptr, *token;
@@ -302,18 +329,7 @@ int main(int, char**){
 			}// if(current_comboSel != item_current)
 			
 			if(finalImagesPaths != NULL && imagePaths != NULL){
-				static int current_item_idx = 0;
-				
-				//char nameList[256];
-				/*char **nameList = (char**)calloc(finalImagesPaths->size, sizeof(char*));
-				for(int i = 0; i < finalImagesPaths->size; i++){
-					char *nameIdx = rindex(imagePaths[i], '/');
-					int pos = (nameIdx - imagePaths[i]);
-					//memset(nameList, 0, 256);
-					size_t nameLen = strlen(imagePaths[i]) - (pos+1);
-					nameList[i] = (char*)calloc(nameLen+1, 1);//1 = sizeof(char)
-					strncpy(nameList[i], nameIdx+1, nameLen);
-				}*/			
+				static int current_item_idx = 0;	
 				
 				if(ImGui::BeginListBox("Images", ImVec2(ImGui::CalcItemWidth() * 1.1, 
 												5 * ImGui::GetTextLineHeightWithSpacing()))){
@@ -330,7 +346,6 @@ int main(int, char**){
 											
 						if(ImGui::Selectable(nameList, is_selected)){
 							current_item_idx = n;
-							//printf("ListBox Selectable");
 							
 							char imgPath[512];
 							memset(imgPath, 0, 512);
@@ -341,20 +356,36 @@ int main(int, char**){
 							my_image_width = 0;
 							my_image_height = 0;
 							
+							/*fm_texture_h = 0;
+							fm_texture_w = 0;*/
+							
 					        glDeleteTextures(1, &my_image_texture);
+					        //glDeleteTextures(1, &fm_texture);
 							
 							my_image_texture = 0;
+							//fm_texture = 0;
 							
 							bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
 															&my_image_width, &my_image_height);
 							IM_ASSERT(ret);
 							
-							//char *nameIdx = rindex(imagePaths[current_item_idx], '/');
-							//int pos = (nameIdx - imagePaths[current_item_idx]);
 							memset(imageName, 0, 256);
 							strncpy(imageName, nameList, strlen(nameList));
 							
+							// mostrar imagen desde RAM
+							float am = 0.0;
+							char* weightfile;
+							strncpy(weightfile, weightsFilePath.c_str(), weightsFilePath.size());
+							char* cfgfile;
+							strncpy(cfgfile, cfgFilePath.c_str(), cfgFilePath.size());
+							if(!cfgFilePath.empty() && !weightsFilePath.empty())
+								generate_featureMaps(&am, NULL, cfgfile,
+												 weightfile, NULL, NULL);
+							
+							//IM_ASSERT(ret1);
+							
 							openImage = true;
+							showFeatureMaps = true;
 						}
 						if(is_selected){
 							ImGui::SetItemDefaultFocus();
@@ -362,25 +393,6 @@ int main(int, char**){
 					}
 					ImGui::EndListBox();
 					
-					
-					/*
-					char imgPath[512];
-					memset(imgPath, 0, 512);
-					strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
-					strncat(imgPath, "/", 2);
-					strncat(imgPath, imagePaths[current_item_idx],
-									 strlen(imagePaths[current_item_idx]));
-					my_image_width = 0;
-					my_image_height = 0;
-					my_image_texture = 0;
-					bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
-													&my_image_width, &my_image_height);
-					IM_ASSERT(ret);
-					
-					char *nameIdx = rindex(imagePaths[current_item_idx], '/');
-					int pos = (nameIdx - imagePaths[current_item_idx]);
-					memset(imageName, 0, 256);
-					strncpy(imageName, nameIdx+1, strlen(imagePaths[current_item_idx]) - (pos+1));*/
 				} //EndListBox
 			}
 			
@@ -483,18 +495,24 @@ int main(int, char**){
 			}
 			
 			if(openImage){
-				ImGui::Begin("Imagen", &openImage);
+				ImGui::Begin("Image", &openImage);
 				ImGui::Text("%s", imageName);
 				//ImGui::Text("pointer = %p", my_image_texture);
 				ImGui::Text("size = %0.0f x %0.0f", my_image_width*0.5f, my_image_height*0.5f);
 				ImGui::Image((void*)(intptr_t)my_image_texture, 
-				ImVec2(my_image_width*0.5f, my_image_height*0.5f),
-						ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));
+							ImVec2(my_image_width*0.5f, my_image_height*0.5f),
+							ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));
 				ImGui::End();		
 			}
 			
-			// parse train, valid, and test to get the files
-			
+			if(showFeatureMaps){
+				ImGui::Begin("Feature maps", &showFeatureMaps);
+				ImGui::Text("Place here all images from forward pass");
+				//ImGui::Image((void*)(intptr_t)fm_texture,
+				//			ImVec2(fm_texture_w*0.5f, fm_texture_h*0.5f),
+				//			ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));				
+				ImGui::End();				
+			}
 			
 		
 		
