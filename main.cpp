@@ -13,8 +13,12 @@
 #endif
 #include <string>
 #include "ImGuiFileDialog.h"
+
+#include "network.h"
 #include "list.h"
 #include "option_list.h"
+#include "parser.h"
+
 
 
 // Simple helper function to load an image into a OpenGL texture with common settings
@@ -78,6 +82,12 @@ bool generate_featureMaps(float *imageData, char *datacfg, char *cfgfile, char *
 		free_network(net);
 		
 	*/
+	network net = parse_network_cfg_custom(cfgfile, 1, 1);
+	load_weights(&net, weightfile);
+	
+	printf("Loaded network and weights\n");
+		
+	free_network(net);
 }
 
 
@@ -374,9 +384,9 @@ int main(int, char**){
 							
 							// mostrar imagen desde RAM
 							float am = 0.0;
-							char* weightfile;
+							char weightfile[256] = {0};
 							strncpy(weightfile, weightsFilePath.c_str(), weightsFilePath.size());
-							char* cfgfile;
+							char cfgfile[256] = {0};
 							strncpy(cfgfile, cfgFilePath.c_str(), cfgFilePath.size());
 							if(!cfgFilePath.empty() && !weightsFilePath.empty())
 								generate_featureMaps(&am, NULL, cfgfile,
