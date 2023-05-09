@@ -30,7 +30,7 @@ LINUX_GL_LIBS = -lGL
 
 CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(EXTENSIONS_DIR) -I$(EXTENSIONS_DIR)/ImGuiFileDialog -I$(EXTENSIONS_DIR)/ImGuiFileDialog/stb -I$(EXTENSIONS_DIR)/Darknet/src -I$(EXTENSIONS_DIR)/Darknet/include #-I$(EXTENSIONS_DIR)/FromDarknet
 CXXFLAGS += -g -Wall
-LIBS = -ldarknet -L$(EXTENSIONS_DIR)/Darknet
+LIBS = -ldarknet -L$(EXTENSIONS_DIR)/darknet
 
 ##---------------------------------------------------------------------
 ## OPENGL ES
@@ -84,9 +84,6 @@ $(OBJDIR)%.o:%.cpp
 	
 $(OBJDIR)%.o:$(EXTENSIONS_DIR)/ImGuiFileDialog/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
-#$(OBJDIR)%.o:$(EXTENSIONS_DIR)/FromDarknet/%.c
-#	$(CXX) $(CXXFLAGS) -c -o $@ $<	
 
 $(OBJDIR)%.o:$(IMGUI_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
