@@ -15,20 +15,19 @@ CXX = g++
 #CXX = clang++
 
 EXE = cnn_analyzer
-IMGUI_DIR = ../imgui
+IMGUI_DIR = ./lib/imgui
 EXTENSIONS_DIR = ./lib
 OBJDIR = ./obj/
 
 SOURCES = main.cpp $(EXTENSIONS_DIR)/ImGuiFileDialog/ImGuiFileDialog.cpp
 SOURCES += $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_demo.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_sdl2.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
-#SOURCES += $(EXTENSIONS_DIR)/FromDarknet/option_list.c $(EXTENSIONS_DIR)/FromDarknet/utils.c $(EXTENSIONS_DIR)/FromDarknet/list.c
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
 
 UNAME_S := $(shell uname -s)
 LINUX_GL_LIBS = -lGL
 
-CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(EXTENSIONS_DIR) -I$(EXTENSIONS_DIR)/ImGuiFileDialog -I$(EXTENSIONS_DIR)/ImGuiFileDialog/stb -I$(EXTENSIONS_DIR)/Darknet/src -I$(EXTENSIONS_DIR)/Darknet/include #-I$(EXTENSIONS_DIR)/FromDarknet
+CXXFLAGS = -std=c++11 -I$(IMGUI_DIR) -I$(IMGUI_DIR)/backends -I$(EXTENSIONS_DIR) -I$(EXTENSIONS_DIR)/ImGuiFileDialog -I$(EXTENSIONS_DIR)/ImGuiFileDialog/stb -I$(EXTENSIONS_DIR)/darknet/src -I$(EXTENSIONS_DIR)/darknet/include 
 CXXFLAGS += -g -Wall
 LIBS = -ldarknet -L$(EXTENSIONS_DIR)/darknet
 
@@ -81,7 +80,7 @@ OBJ = $(addprefix $(OBJDIR), $(OBJS))
 
 $(OBJDIR)%.o:%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-	
+
 $(OBJDIR)%.o:$(EXTENSIONS_DIR)/ImGuiFileDialog/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
@@ -93,7 +92,7 @@ $(OBJDIR)%.o:$(IMGUI_DIR)/backends/%.cpp
 
 all: $(OBJDIR) $(EXE)
 	@echo Build complete for $(ECHO_MESSAGE)
-	
+
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
