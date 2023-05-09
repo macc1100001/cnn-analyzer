@@ -15,8 +15,10 @@ Compile instructions
 3. Return to **cnn_analyze** main directory
 
 4. Do 
-	```cd lib/ImGuiFileDialog
-	git checkout Lib_Only```
+	```
+	cd lib/ImGuiFileDialog
+	git checkout Lib_Only
+	```
 
 5. Do `make -j`
 
