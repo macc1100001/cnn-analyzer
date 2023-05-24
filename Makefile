@@ -15,8 +15,8 @@ CXX = g++
 #CXX = clang++
 
 EXE = cnn_analyzer
-IMGUI_DIR = ./lib/imgui
 EXTENSIONS_DIR = ./lib
+IMGUI_DIR = $(EXTENSIONS_DIR)/imgui
 OBJDIR = ./obj/
 
 SOURCES = main.cpp $(EXTENSIONS_DIR)/ImGuiFileDialog/ImGuiFileDialog.cpp

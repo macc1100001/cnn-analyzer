@@ -56,37 +56,117 @@ bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_wid
     return true;
 }
 
-bool generate_featureMaps(float *imageData, char *datacfg, char *cfgfile, char *weightfile, char *outfile, char *filename){
-	if (imageData == NULL)
-		return false;
+bool generate_featureMaps(char *datacfg, char *cfgfile, char *weightfile, char *outfile, char *filename, GLuint* out_texture, int* out_width, int* out_height){
+	
+	int image_width = 0;
+    int image_height = 0;	
+    int image_channels = 0;
+	unsigned char* image_data1 = stbi_load(filename, &image_width, &image_height, &image_channels, 3);
+    if (image_data1 == NULL)
+        return false;
 	/*
-		TODO:
-		Functions to get maybe the image from feature map in layer "l" are:
+		TODO:			
+		Convert imageData to "unsigned char*":
 		
-		image get_network_image_layer(network net, int i);
-		image get_image_layer(image m, int l);
-		void save_image(image im, const char *name)	
-		test_detector()
-		run_nightmare()
-		
-		Files probably needed are (consider dependency files too):
-			image.c
-			nightmare.c
-			detector.c
-			parser.c
-		
-		//start maybe like this?
-		network net = parse_network_cfg_custom(cfgfile, 1, 1);
-		load_weights(&net, weightfile);
-		
-		free_network(net);
-		
+		unsigned char* data = (unsigned char*)xcalloc(im.w * im.h * im.c, sizeof(unsigned char));
+		int i, k;
+		for (k = 0; k < im.c; ++k) {
+        	for (i = 0; i < im.w*im.h; ++i) {
+        	    data[i*im.c + k] = (unsigned char)(255 * im.data[i + k*im.w*im.h]);
+        	}
+    	}
+    	
+    	To show image maybe use this?:
+	    	void show_image(image p, const char *name)
+    	To save the image use this:
+    		void save_image_png(image im, const char *name)
+    		
+    	To get output of a layer use this
+    		For GPU:
+    		float * a = get_network_output_layer_gpu(net, i);
+			For CPU:
+			float * a = net.layers[i].output;
 	*/
+	
 	network net = parse_network_cfg_custom(cfgfile, 1, 1);
 	load_weights(&net, weightfile);
 	
-	printf("Loaded network and weights\n");
-		
+	// Example with CPU
+	
+	//forward_custom
+	int i, j, k;
+	image im = make_image(image_width, image_height, image_channels);
+    for(k = 0; k < image_channels; ++k){
+        for(j = 0; j < image_height; ++j){
+            for(i = 0; i < image_width; ++i){
+                int dst_index = i + image_width*j + image_width*image_height*k;
+                int src_index = k + image_channels*i + image_channels*image_width*j;
+                im.data[dst_index] = (float)image_data1[src_index]/255.;
+            }
+        }
+    }
+    
+    // resize
+    image sized = resize_image(im, net.w, net.h);
+	
+	
+	network_state state = {0};
+    state.net = net;
+    state.index = 0;
+    state.input = sized.data;
+    state.truth = 0;
+    state.train = 0;
+    state.delta = 0;
+	
+	state.workspace = net.workspace;
+    // just test for the first layer
+    for(i = 0; i < 1; ++i){
+        state.index = i;
+        layer l = net.layers[i];
+        l.forward(l, state);
+        state.input = l.output;
+    }
+	
+	
+	int h, w, c;
+	h = net.layers[0].out_h;
+	w = net.layers[0].out_w;
+	c = net.layers[0].out_c;
+	
+	//unsigned char* image_data = (unsigned char*)xcalloc(w * h * c, sizeof(unsigned char));
+	
+	float *out = net.layers[0].output;
+	
+	/*for (k = 0; k < c; ++k) {
+    	for (i = 0; i < w*h; ++i) {
+    	    image_data[k*h*w + i] = (unsigned char)(255 * out[i + k*w*h]);
+    	}
+	}
+	*/
+	
+	 // Create a OpenGL texture identifier
+    GLuint image_texture;
+    glGenTextures(1, &image_texture);
+    glBindTexture(GL_TEXTURE_2D, image_texture);
+
+    // Setup filtering parameters for display
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
+
+    // Upload pixels into texture
+#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+#endif
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_FLOAT, out);
+    stbi_image_free(image_data1);
+
+    *out_texture = image_texture;
+    *out_width = w;
+    *out_height = h;
+			
+	free_image(im);
 	free_network(net);
 }
 
@@ -230,7 +310,7 @@ int main(int, char**){
 			static int fm_texture_w = 0;
 			static int fm_texture_h = 0;
 			static GLuint my_image_texture;
-			//static GLuint fm_texture;
+			static GLuint fm_texture;
 			static char imageName[256];
 			static char **imagePaths = NULL;
 			static bool showComboBox = false;
@@ -277,9 +357,6 @@ int main(int, char**){
 					convolution(forward) to image selected in list box*/			
 					// Add a listbox that shows every image and when selected, perform convolution(forward)
 				}// if(!objdataPath.empty)
-				//When item is selected read file contents to get routes and perform a
-				//convolution(forward) to image selected in list box
-				// Add a listbox that shows every image and when selected, perform convolution(forward)
 			}
 			
 			if(showComboBox)
@@ -300,12 +377,6 @@ int main(int, char**){
 				ImGui::Text("Using %s", items[item_current]);
 				free_list(options);
 			
-			// TODO: 
-			/*
-				Read file at darknetPath + / + val
-				Store it as an array. maybe char**?
-				Process it in listbox
-			*/
 				memset(full_valPath, 0, 512);
 				strncpy(full_valPath, darknetPath.c_str(), darknetPath.size());
 				strncat(full_valPath, "/", 2);
@@ -319,6 +390,7 @@ int main(int, char**){
 									
 				if(imagePaths)
 					free(imagePaths);
+				
 									
 				if(finalImagesPaths)
 					free_list(finalImagesPaths);
@@ -366,31 +438,32 @@ int main(int, char**){
 							my_image_width = 0;
 							my_image_height = 0;
 							
-							/*fm_texture_h = 0;
-							fm_texture_w = 0;*/
+							fm_texture_h = 0;
+							fm_texture_w = 0;
 							
 					        glDeleteTextures(1, &my_image_texture);
-					        //glDeleteTextures(1, &fm_texture);
+					        glDeleteTextures(1, &fm_texture);
 							
 							my_image_texture = 0;
-							//fm_texture = 0;
+							fm_texture = 0;
 							
 							bool ret = LoadTextureFromFile(imgPath,	&my_image_texture,
 															&my_image_width, &my_image_height);
 							IM_ASSERT(ret);
 							
+														
 							memset(imageName, 0, 256);
 							strncpy(imageName, nameList, strlen(nameList));
 							
 							// mostrar imagen desde RAM
-							float am = 0.0;
 							char weightfile[256] = {0};
 							strncpy(weightfile, weightsFilePath.c_str(), weightsFilePath.size());
 							char cfgfile[256] = {0};
 							strncpy(cfgfile, cfgFilePath.c_str(), cfgFilePath.size());
+							char objDatafile[256] = {0};
+							strncpy(objDatafile, objdataPath.c_str(), objdataPath.size());
 							if(!cfgFilePath.empty() && !weightsFilePath.empty())
-								generate_featureMaps(&am, NULL, cfgfile,
-												 weightfile, NULL, NULL);
+								bool ret2 = generate_featureMaps(objDatafile, cfgfile, weightfile, NULL, imgPath, &fm_texture, &fm_texture_w, &fm_texture_h);
 							
 							//IM_ASSERT(ret1);
 							
@@ -518,9 +591,9 @@ int main(int, char**){
 			if(showFeatureMaps){
 				ImGui::Begin("Feature maps", &showFeatureMaps);
 				ImGui::Text("Place here all images from forward pass");
-				//ImGui::Image((void*)(intptr_t)fm_texture,
-				//			ImVec2(fm_texture_w*0.5f, fm_texture_h*0.5f),
-				//			ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));				
+				ImGui::Image((void*)(intptr_t)fm_texture,
+							ImVec2(fm_texture_w*0.5f, fm_texture_h*0.5f),
+							ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));				
 				ImGui::End();				
 			}
 			
@@ -536,7 +609,7 @@ int main(int, char**){
         SDL_GL_SwapWindow(window);
                         	
 	}
-	
+		
 	// Cleanup
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplSDL2_Shutdown();
