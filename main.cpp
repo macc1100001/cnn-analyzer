@@ -56,7 +56,7 @@ bool LoadTextureFromFile(const char* filename, GLuint* out_texture, int* out_wid
     return true;
 }
 
-bool generate_featureMaps(char *datacfg, char *cfgfile, char *weightfile, char *outfile, char *filename, GLuint* out_texture, int* out_width, int* out_height){
+bool generate_featureMaps(network *net, char *outfile, char *filename, GLuint* out_texture, int* out_width, int* out_height, int layer_i, int filter){
 	
 	int image_width = 0;
     int image_height = 0;	
@@ -87,9 +87,9 @@ bool generate_featureMaps(char *datacfg, char *cfgfile, char *weightfile, char *
 			For CPU:
 			float * a = net.layers[i].output;
 	*/
-	
-	network net = parse_network_cfg_custom(cfgfile, 1, 1);
-	load_weights(&net, weightfile);
+	// network
+	//network net = parse_network_cfg_custom(cfgfile, 1, 1);
+	//load_weights(&net, weightfile);
 	
 	// Example with CPU
 	
@@ -107,35 +107,35 @@ bool generate_featureMaps(char *datacfg, char *cfgfile, char *weightfile, char *
     }
     
     // resize
-    image sized = resize_image(im, net.w, net.h);
+    image sized = resize_image(im, net->w, net->h);
 	
 	
 	network_state state = {0};
-    state.net = net;
+    state.net = *net;
     state.index = 0;
     state.input = sized.data;
     state.truth = 0;
     state.train = 0;
     state.delta = 0;
 	
-	state.workspace = net.workspace;
+	state.workspace = net->workspace;
     // just test for the first layer
-    for(i = 0; i < 1; ++i){
+    for(i = 0; i < layer_i; ++i){
         state.index = i;
-        layer l = net.layers[i];
+        layer l = net->layers[i];
         l.forward(l, state);
         state.input = l.output;
     }
 	
 	
-	int h, w, c;
-	h = net.layers[0].out_h;
-	w = net.layers[0].out_w;
-	c = net.layers[0].out_c;
+	int h, w;
+	h = net->layers[i-1].out_h;
+	w = net->layers[i-1].out_w;
+	//c = net->layers[i-1].out_c;
 	
 	//unsigned char* image_data = (unsigned char*)xcalloc(w * h * c, sizeof(unsigned char));
 	
-	float *out = net.layers[0].output;
+	float *out = net->layers[i-1].output;
 	
 	/*for (k = 0; k < c; ++k) {
     	for (i = 0; i < w*h; ++i) {
@@ -159,7 +159,7 @@ bool generate_featureMaps(char *datacfg, char *cfgfile, char *weightfile, char *
 #if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 #endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_FLOAT, out);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_FLOAT, out+(filter*h*w));
     stbi_image_free(image_data1);
 
     *out_texture = image_texture;
@@ -167,7 +167,8 @@ bool generate_featureMaps(char *datacfg, char *cfgfile, char *weightfile, char *
     *out_height = h;
 			
 	free_image(im);
-	free_network(net);
+	//free_network(net);
+	return true;
 }
 
 
@@ -231,6 +232,7 @@ int main(int, char**){
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	bool done = false;
 	bool show_demo_window = false;
+	network net;
 	
 	while(!done){
 		SDL_Event event;
@@ -367,6 +369,11 @@ int main(int, char**){
 			static char imagesPaths[1000*512];
 			static list *finalImagesPaths = NULL;
 			static char full_valPath[512];
+			static char **layerNamesArr = NULL;
+			static int layerNamesArr_size = 0;
+			static int layer_current = 0;
+			static int filter_current = 0;
+			static char imgPath[512];
 			
 			if(current_comboSel != item_current && strlen(temp) != 0){
 				options = read_data_cfg(temp);
@@ -374,7 +381,7 @@ int main(int, char**){
 				char item[1024] = {"\0"};
 				strncpy(item, items[item_current], strlen(items[item_current]));
 				val = option_find(options, item);
-				ImGui::Text("Using %s", items[item_current]);
+				//ImGui::Text("Using %s", items[item_current]);
 				free_list(options);
 			
 				memset(full_valPath, 0, 512);
@@ -429,7 +436,7 @@ int main(int, char**){
 						if(ImGui::Selectable(nameList, is_selected)){
 							current_item_idx = n;
 							
-							char imgPath[512];
+							//char imgPath[512];
 							memset(imgPath, 0, 512);
 							strncpy(imgPath, darknetPath.c_str(), darknetPath.size());
 							strncat(imgPath, "/", 2);
@@ -456,16 +463,12 @@ int main(int, char**){
 							strncpy(imageName, nameList, strlen(nameList));
 							
 							// mostrar imagen desde RAM
-							char weightfile[256] = {0};
-							strncpy(weightfile, weightsFilePath.c_str(), weightsFilePath.size());
-							char cfgfile[256] = {0};
-							strncpy(cfgfile, cfgFilePath.c_str(), cfgFilePath.size());
-							char objDatafile[256] = {0};
-							strncpy(objDatafile, objdataPath.c_str(), objdataPath.size());
-							if(!cfgFilePath.empty() && !weightsFilePath.empty())
-								bool ret2 = generate_featureMaps(objDatafile, cfgfile, weightfile, NULL, imgPath, &fm_texture, &fm_texture_w, &fm_texture_h);
+							if(!cfgFilePath.empty() && !weightsFilePath.empty()){
+								bool ret2 = generate_featureMaps(&net, NULL, imgPath, 
+											&fm_texture, &fm_texture_w, &fm_texture_h, 1, 0);
 							
-							//IM_ASSERT(ret1);
+								IM_ASSERT(ret2);
+							}
 							
 							openImage = true;
 							showFeatureMaps = true;
@@ -484,7 +487,8 @@ int main(int, char**){
 			
 			static int clicked2 = 0;
 			static bool openFileContents1 = false;
-			static char fileContents1[4096];
+			static char fileContents1[4096*100];
+			static char cfgtmp[] = {0};
 			ImGui::Spacing();
 			ImGui::Spacing();
 			ImGui::Text("cfg file");	
@@ -507,23 +511,59 @@ int main(int, char**){
 					if(ImGuiFileDialog::Instance()->IsOk()){
 						cfgFilePath = ImGuiFileDialog::Instance()->GetFilePathName();			
 					}
-					clicked2++;
+					clicked2++;				
 					ImGuiFileDialog::Instance()->Close();
 				}
 				if(!cfgFilePath.empty()){
-					memset(fileContents1, 0, 4096);
+					memset(fileContents1, 0, 4096*100);
 					FILE *fp = fopen(cfgFilePath.c_str(), "r");
 					if(fp){
 						fread(fileContents1, IM_ARRAYSIZE(fileContents1), sizeof(*fileContents1), fp);
 						fclose(fp);
 						openFileContents1 = true;
 					}
+					memset(cfgtmp, 0, 256);
+					char cfg[256] = {0};
+					strncpy(cfg, cfgFilePath.c_str(), 256);
+					char *idx = rindex(cfg, '/');
+					size_t len = cfgFilePath.size() - (idx-cfg);
+					strncpy(cfgtmp, idx+1, len);	
+					
+					net = parse_network_cfg_custom(cfg, 1, 1);
+					
+					char validx[10] = {0};
+					list *layerNames = make_list();
+					for(int i = 0; i < net.n; ++i){
+						layer l = net.layers[i];
+						if(l.type == CONVOLUTIONAL){
+							char *nameLayer = (char*)xcalloc(30, sizeof(char));
+							sprintf(validx,"%d", i+1);
+							strncat(nameLayer, "Conv-", 6);
+							strncat(nameLayer, validx, strlen(validx));
+							list_insert(layerNames, nameLayer);
+						}
+						else if(l.type == SHORTCUT){
+							char *nameLayer = (char*)xcalloc(30, sizeof(char));;
+							sprintf(validx,"%d", i+1);
+							strncat(nameLayer, "Shortcut-", 10);
+							strncat(nameLayer, validx, strlen(validx));
+							list_insert(layerNames, nameLayer);
+						}
+							
+					}
+					layerNamesArr_size = layerNames->size;					
+					layerNamesArr = (char**)list_to_array(layerNames);
+					free(layerNames);
+					
 				}
 			}
+			if(!cfgFilePath.empty())
+				ImGui::Text("%s", cfgtmp);
 			
 			ImGui::PopID();
 			
 			static int clicked3 = 0;
+			static char wtmp[256] = {0};
 			ImGui::Spacing();
 			ImGui::Spacing();
 			ImGui::Text("weights file");
@@ -533,14 +573,14 @@ int main(int, char**){
 				clicked3++;
 				
 			if(clicked3 & 1){
-				static char defaultWeigthsDir[512] = {"\0"};
+				char defaultWeigthsDir[512] = {"\0"};
 				// replace this later with directory in "backup = " in obj.data
-				static char replaceThisLater[] = "/backup/";
-				if(strlen(defaultWeigthsDir) == 0 && !darknetPath.empty()){
+				char replaceThisLater[] = "/backup/";
+				if(!darknetPath.empty()){
 					strncpy(defaultWeigthsDir, darknetPath.c_str(), darknetPath.size());
 					strncat(defaultWeigthsDir, replaceThisLater, strlen(replaceThisLater));
 				}
-				else if(darknetPath.empty())
+				else
 					strncpy(defaultWeigthsDir, ".", 2);
 					
 				ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose weights file",
@@ -548,20 +588,32 @@ int main(int, char**){
 				if(ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoCollapse,
 														minSize, maxSize)){
 					if(ImGuiFileDialog::Instance()->IsOk()){
-						weightsFilePath = ImGuiFileDialog::Instance()->GetFilePathName();
+						weightsFilePath = ImGuiFileDialog::Instance()->GetFilePathName();						
 					}
 					clicked3++;
 					ImGuiFileDialog::Instance()->Close();
 				}
-				
-				if(!weightsFilePath.empty())
-					ImGui::Text("%s", weightsFilePath.c_str());
-				
+				if(!weightsFilePath.empty()){
+					memset(wtmp, 0, 256);
+					char wfp[256] = {0};
+					strncpy(wfp, weightsFilePath.c_str(), 256);
+					char *idx = rindex(wfp, '/');
+					size_t len = weightsFilePath.size() - (idx-wfp);
+					strncpy(wtmp, idx+1, len);
+					
+					load_weights(&net, wfp);
+				}
+			}
+			if(!weightsFilePath.empty()){
+				ImGui::Text("%s", wtmp);
 			}
 			
 			ImGui::PopID();
 									
 			ImGui::End();
+			
+			static int current_comboSel_layer = -1;
+			static int current_comboSel_filter = -1;
 			
 			if(openFileContents){
 				ImGui::SetNextWindowSize(ImVec2(425, 130), ImGuiCond_Always);
@@ -587,14 +639,49 @@ int main(int, char**){
 							ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));
 				ImGui::End();		
 			}
-			
+			//static char filterNames[5000*10] = {0};
+			static int filterNames_size = 0;
+			static char **filterNamesArr = NULL;
 			if(showFeatureMaps){
 				ImGui::Begin("Feature maps", &showFeatureMaps);
-				ImGui::Text("Place here all images from forward pass");
+				layer l = net.layers[layer_current];
+				
+				list *filterNames = make_list();
+				for(int i = 0; i < l.out_c; ++i){
+					char *nameFilter = (char*)xcalloc(10, sizeof(char));
+					sprintf(nameFilter, "%d", i);
+					list_insert(filterNames, nameFilter);
+				}
+				filterNames_size = filterNames->size;
+				filterNamesArr = (char**)list_to_array(filterNames);
+				free(filterNames);
+				
+				ImGui::Text("Size = %d x %d x %d", l.out_w, l.out_h, l.out_c);
+				ImGui::Combo("Layers", &layer_current, layerNamesArr, layerNamesArr_size);
+				ImGui::Combo("Filters", &filter_current, filterNamesArr, filterNames_size);
+				if(current_comboSel_layer != layer_current || current_comboSel_filter != filter_current){
+					current_comboSel_layer = layer_current;
+					current_comboSel_filter = filter_current;
+					fm_texture_h = 0;
+					fm_texture_w = 0;
+					glDeleteTextures(1, &fm_texture);
+					fm_texture = 0;
+					if(!cfgFilePath.empty() && !weightsFilePath.empty()){
+						// TODO: Add a listbox to select all available filters and then show it
+						bool ret2 = generate_featureMaps(&net, NULL, imgPath, 
+										&fm_texture, &fm_texture_w, &fm_texture_h, layer_current+1, filter_current);
+						// generate_featureMaps function, last parameter is filter to show
+							
+						IM_ASSERT(ret2);
+					}
+					
+				}
+				float factor;
+				factor = 512.0/fm_texture_h;
 				ImGui::Image((void*)(intptr_t)fm_texture,
-							ImVec2(fm_texture_w*0.5f, fm_texture_h*0.5f),
+							ImVec2(fm_texture_w*factor, fm_texture_h*factor),
 							ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));				
-				ImGui::End();				
+				ImGui::End();
 			}
 			
 		
@@ -609,6 +696,8 @@ int main(int, char**){
         SDL_GL_SwapWindow(window);
                         	
 	}
+	
+	free_network(net);
 		
 	// Cleanup
 	ImGui_ImplOpenGL3_Shutdown();
