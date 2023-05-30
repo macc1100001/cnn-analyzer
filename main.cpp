@@ -146,7 +146,7 @@ bool generate_featureMaps(network *net, char *outfile, char *filename, GLuint* o
 
     // Setup filtering parameters for display
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
 
@@ -350,9 +350,6 @@ int main(int, char**){
 					memset(temp, 0, 2048);
 					strncpy(temp, objdataPath.c_str(), objdataPath.size());	
 					showComboBox = true;		
-					/* When item is selected read file contents to get routes and perform a 
-					convolution(forward) to image selected in list box*/			
-					// Add a listbox that shows every image and when selected, perform convolution(forward)
 				}// if(!objdataPath.empty)
 			}
 			
@@ -376,7 +373,6 @@ int main(int, char**){
 				char item[1024] = {"\0"};
 				strncpy(item, items[item_current], strlen(items[item_current]));
 				val = option_find(options, item);
-				//ImGui::Text("Using %s", items[item_current]);
 				free_list(options);
 			
 				memset(full_valPath, 0, 512);
