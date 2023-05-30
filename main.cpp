@@ -87,13 +87,8 @@ bool generate_featureMaps(network *net, char *outfile, char *filename, GLuint* o
 			For CPU:
 			float * a = net.layers[i].output;
 	*/
-	// network
-	//network net = parse_network_cfg_custom(cfgfile, 1, 1);
-	//load_weights(&net, weightfile);
-	
 	// Example with CPU
 	
-	//forward_custom
 	int i, j, k;
 	image im = make_image(image_width, image_height, image_channels);
     for(k = 0; k < image_channels; ++k){
@@ -119,8 +114,8 @@ bool generate_featureMaps(network *net, char *outfile, char *filename, GLuint* o
     state.delta = 0;
 	
 	state.workspace = net->workspace;
-    // just test for the first layer
-    for(i = 0; i < layer_i; ++i){
+	//forward_custom
+    for(i = 0; i < net->n; ++i){
         state.index = i;
         layer l = net->layers[i];
         l.forward(l, state);
@@ -129,13 +124,13 @@ bool generate_featureMaps(network *net, char *outfile, char *filename, GLuint* o
 	
 	
 	int h, w;
-	h = net->layers[i-1].out_h;
-	w = net->layers[i-1].out_w;
+	h = net->layers[layer_i].out_h;
+	w = net->layers[layer_i].out_w;
 	//c = net->layers[i-1].out_c;
 	
 	//unsigned char* image_data = (unsigned char*)xcalloc(w * h * c, sizeof(unsigned char));
 	
-	float *out = net->layers[i-1].output;
+	float *out = net->layers[layer_i].output;
 	
 	/*for (k = 0; k < c; ++k) {
     	for (i = 0; i < w*h; ++i) {
@@ -509,52 +504,50 @@ int main(int, char**){
 				if(ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoCollapse,
 														minSize, maxSize)){
 					if(ImGuiFileDialog::Instance()->IsOk()){
-						cfgFilePath = ImGuiFileDialog::Instance()->GetFilePathName();			
+						cfgFilePath = ImGuiFileDialog::Instance()->GetFilePathName();
+						if(!cfgFilePath.empty()){
+							memset(fileContents1, 0, 4096*100);
+							FILE *fp = fopen(cfgFilePath.c_str(), "r");
+							if(fp){
+								fread(fileContents1, IM_ARRAYSIZE(fileContents1), sizeof(*fileContents1), fp);
+								fclose(fp);
+								openFileContents1 = true;
+							}
+							memset(cfgtmp, 0, 256);
+							char cfg[256] = {0};
+							strncpy(cfg, cfgFilePath.c_str(), 256);
+							char *idx = rindex(cfg, '/');
+							size_t len = cfgFilePath.size() - (idx-cfg);
+							strncpy(cfgtmp, idx+1, len);	
+							
+							net = parse_network_cfg_custom(cfg, 1, 1);
+							
+							char validx[10] = {0};
+							list *layerNames = make_list();
+							for(int i = 0; i < net.n; ++i){
+								layer l = net.layers[i];
+								if(l.type == CONVOLUTIONAL){
+									char *nameLayer = (char*)xcalloc(30, sizeof(char));
+									sprintf(validx,"%d", i);
+									strncat(nameLayer, "Conv-", 6);
+									strncat(nameLayer, validx, strlen(validx));
+									list_insert(layerNames, nameLayer);
+								}
+								else if(l.type == SHORTCUT){
+									char *nameLayer = (char*)xcalloc(30, sizeof(char));;
+									sprintf(validx,"%d", i);
+									strncat(nameLayer, "Shortcut-", 10);
+									strncat(nameLayer, validx, strlen(validx));
+									list_insert(layerNames, nameLayer);
+								}						
+							}
+							layerNamesArr_size = layerNames->size;					
+							layerNamesArr = (char**)list_to_array(layerNames);
+							free(layerNames);
+						}		
 					}
 					clicked2++;				
 					ImGuiFileDialog::Instance()->Close();
-				}
-				if(!cfgFilePath.empty()){
-					memset(fileContents1, 0, 4096*100);
-					FILE *fp = fopen(cfgFilePath.c_str(), "r");
-					if(fp){
-						fread(fileContents1, IM_ARRAYSIZE(fileContents1), sizeof(*fileContents1), fp);
-						fclose(fp);
-						openFileContents1 = true;
-					}
-					memset(cfgtmp, 0, 256);
-					char cfg[256] = {0};
-					strncpy(cfg, cfgFilePath.c_str(), 256);
-					char *idx = rindex(cfg, '/');
-					size_t len = cfgFilePath.size() - (idx-cfg);
-					strncpy(cfgtmp, idx+1, len);	
-					
-					net = parse_network_cfg_custom(cfg, 1, 1);
-					
-					char validx[10] = {0};
-					list *layerNames = make_list();
-					for(int i = 0; i < net.n; ++i){
-						layer l = net.layers[i];
-						if(l.type == CONVOLUTIONAL){
-							char *nameLayer = (char*)xcalloc(30, sizeof(char));
-							sprintf(validx,"%d", i+1);
-							strncat(nameLayer, "Conv-", 6);
-							strncat(nameLayer, validx, strlen(validx));
-							list_insert(layerNames, nameLayer);
-						}
-						else if(l.type == SHORTCUT){
-							char *nameLayer = (char*)xcalloc(30, sizeof(char));;
-							sprintf(validx,"%d", i+1);
-							strncat(nameLayer, "Shortcut-", 10);
-							strncat(nameLayer, validx, strlen(validx));
-							list_insert(layerNames, nameLayer);
-						}
-							
-					}
-					layerNamesArr_size = layerNames->size;					
-					layerNamesArr = (char**)list_to_array(layerNames);
-					free(layerNames);
-					
 				}
 			}
 			if(!cfgFilePath.empty())
@@ -588,12 +581,22 @@ int main(int, char**){
 				if(ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey", ImGuiWindowFlags_NoCollapse,
 														minSize, maxSize)){
 					if(ImGuiFileDialog::Instance()->IsOk()){
-						weightsFilePath = ImGuiFileDialog::Instance()->GetFilePathName();						
+						weightsFilePath = ImGuiFileDialog::Instance()->GetFilePathName();		
+						if(!weightsFilePath.empty()){
+							memset(wtmp, 0, 256);
+							char wfp[256] = {0};
+							strncpy(wfp, weightsFilePath.c_str(), 256);
+							char *idx = rindex(wfp, '/');
+							size_t len = weightsFilePath.size() - (idx-wfp);
+							strncpy(wtmp, idx+1, len);
+							
+							load_weights(&net, wfp);
+						}				
 					}
 					clicked3++;
 					ImGuiFileDialog::Instance()->Close();
 				}
-				if(!weightsFilePath.empty()){
+				/*if(!weightsFilePath.empty()){
 					memset(wtmp, 0, 256);
 					char wfp[256] = {0};
 					strncpy(wfp, weightsFilePath.c_str(), 256);
@@ -602,7 +605,7 @@ int main(int, char**){
 					strncpy(wtmp, idx+1, len);
 					
 					load_weights(&net, wfp);
-				}
+				}*/
 			}
 			if(!weightsFilePath.empty()){
 				ImGui::Text("%s", wtmp);
@@ -644,7 +647,12 @@ int main(int, char**){
 			static char **filterNamesArr = NULL;
 			if(showFeatureMaps){
 				ImGui::Begin("Feature maps", &showFeatureMaps);
-				layer l = net.layers[layer_current];
+				// get layer index from layer nameFilter
+				char *tmp = rindex(layerNamesArr[layer_current], '-');
+				char layer_toShow[4];
+				strncpy(layer_toShow, tmp+1, strlen(tmp+1));
+				int layer_toShowInt = atoi(layer_toShow);
+				layer l = net.layers[layer_toShowInt];
 				
 				list *filterNames = make_list();
 				for(int i = 0; i < l.out_c; ++i){
@@ -667,10 +675,8 @@ int main(int, char**){
 					glDeleteTextures(1, &fm_texture);
 					fm_texture = 0;
 					if(!cfgFilePath.empty() && !weightsFilePath.empty()){
-						// TODO: Add a listbox to select all available filters and then show it
 						bool ret2 = generate_featureMaps(&net, NULL, imgPath, 
-										&fm_texture, &fm_texture_w, &fm_texture_h, layer_current+1, filter_current);
-						// generate_featureMaps function, last parameter is filter to show
+										&fm_texture, &fm_texture_w, &fm_texture_h, layer_current, filter_current);
 							
 						IM_ASSERT(ret2);
 					}
