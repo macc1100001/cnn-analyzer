@@ -6,9 +6,7 @@ Compile instructions
 
 1. Open a terminal in lib/darknet directory
 
-	1.1. Change GPU flags, gpu=1, cudnn=1, cudnn_half=1, use_cpp=1
-
-	1.2. Change cudnn, flags where nvidia libraries are installed, in PopOS is /usr/lib/cuda/
+	1.1. Change GPU flags use_cpp=1
 	
 2. Do `make -j libdarknet.so`
 
